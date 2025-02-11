@@ -1,22 +1,59 @@
-SELECT
-    product_name,
-    
-    -- Сумма продаж по дням
-    COALESCE(SUM(CASE WHEN day_of_week = 'понедельник' THEN total_sales_kg END), 0) AS Monday,
-    COALESCE(SUM(CASE WHEN day_of_week = 'вторник' THEN total_sales_kg END), 0) AS Tuesday,
-    COALESCE(SUM(CASE WHEN day_of_week = 'среда' THEN total_sales_kg END), 0) AS Wednesday,
-    COALESCE(SUM(CASE WHEN day_of_week = 'четверг' THEN total_sales_kg END), 0) AS Thursday,
-    COALESCE(SUM(CASE WHEN day_of_week = 'пятница' THEN total_sales_kg END), 0) AS Friday,
-    COALESCE(SUM(CASE WHEN day_of_week = 'суббота' THEN total_sales_kg END), 0) AS Saturday,
-    COALESCE(SUM(CASE WHEN day_of_week = 'воскресенье' THEN total_sales_kg END), 0) AS Sunday,
-    
-    -- Итоговая сумма продаж за неделю
-    COALESCE(SUM(total_sales_kg), 0) AS Total_sales,
-    
-    -- План продаж за неделю
-    COALESCE(MAX(sales_plan), 0) AS Sales_plan
-    
-FROM vp
-WHERE year = 2024
-GROUP BY year, product_name
-ORDER BY year, product_name;
+-- максимальные планы продаж по группе товаров
+with max_sales_plan as (
+    select 
+        product_name, 
+        max(sales_plan) as max_sales_plan
+    from vp
+    where year = 2024
+    group by product_name
+)
+select * from (
+    select
+        product_name,
+        
+        -- сумма продаж по дням
+        coalesce(sum(case when day_of_week = 'понедельник' then total_sales_kg end), 0) as monday,
+        coalesce(sum(case when day_of_week = 'вторник' then total_sales_kg end), 0) as tuesday,
+        coalesce(sum(case when day_of_week = 'среда' then total_sales_kg end), 0) as wednesday,
+        coalesce(sum(case when day_of_week = 'четверг' then total_sales_kg end), 0) as thursday,
+        coalesce(sum(case when day_of_week = 'пятница' then total_sales_kg end), 0) as friday,
+        coalesce(sum(case when day_of_week = 'суббота' then total_sales_kg end), 0) as saturday,
+        coalesce(sum(case when day_of_week = 'воскресенье' then total_sales_kg end), 0) as sunday,
+        
+        -- итоговая сумма продаж за неделю
+        coalesce(sum(total_sales_kg), 0) as total_sales,
+        
+        -- план продаж для каждого продукта
+        coalesce(max(sales_plan), 0) as sales_plan
+
+    from vp
+    where year = 2024
+    group by product_name
+
+    union all
+
+    -- итоговая строка для суммы максимальных значений по каждому продукту
+    select
+        'Итого' as product_name,
+        
+        -- сумма продаж по дням для итоговой строки
+        coalesce(sum(case when day_of_week = 'понедельник' then total_sales_kg end), 0) as monday,
+        coalesce(sum(case when day_of_week = 'вторник' then total_sales_kg end), 0) as tuesday,
+        coalesce(sum(case when day_of_week = 'среда' then total_sales_kg end), 0) as wednesday,
+        coalesce(sum(case when day_of_week = 'четверг' then total_sales_kg end), 0) as thursday,
+        coalesce(sum(case when day_of_week = 'пятница' then total_sales_kg end), 0) as friday,
+        coalesce(sum(case when day_of_week = 'суббота' then total_sales_kg end), 0) as saturday,
+        coalesce(sum(case when day_of_week = 'воскресенье' then total_sales_kg end), 0) as sunday,
+        
+        -- итоговая сумма продаж за неделю для итоговой строки
+        coalesce(sum(total_sales_kg), 0) as total_sales,
+        
+        -- сумма максимальных значений по sales_plan для каждого продукта
+        (select sum(max_sales_plan) from max_sales_plan) as sales_plan
+
+    from vp
+    where year = 2024
+
+    group by product_name
+) 
+order by case when product_name = 'Итого' then 1 else 0 end, product_name;
